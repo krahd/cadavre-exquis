@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>cadavre exquis</title>
+    <meta
+      name="description"
+      content="An exquisite corpse of found sentences — each line drawn from a different book."
+    />
+    <link rel="stylesheet" href="css/styles.css" />
+  </head>
+  <body>
+    <div class="app">
+      <!-- ============ LEFT: controls + history ============ -->
+      <aside class="sidebar">
+        <header class="brand">
+          <h1 class="brand__title">cadavre exquis</h1>
+          <p class="brand__tagline">a passage of found sentences, each from a different book</p>
+        </header>
+
+        <form class="compose" id="compose" autocomplete="off">
+          <div class="field">
+            <label class="field__label" for="seed">Starting sentence</label>
+            <textarea
+              id="seed"
+              class="seed-input"
+              rows="3"
+              placeholder="Type a sentence, or draw a famous first line below."
+            ></textarea>
+            <div class="seed-actions">
+              <button id="shuffle" type="button" class="chip">↻ Random</button>
+              <button id="browse" type="button" class="chip">☰ Browse first lines</button>
+            </div>
+            <p id="seed-source" class="seed-source"></p>
+          </div>
+
+          <div class="field">
+            <label class="field__label" for="source">Source</label>
+            <select id="source" class="select"></select>
+          </div>
+
+          <div class="field" id="lang-field" hidden>
+            <label class="field__label" for="lang">Language</label>
+            <select id="lang" class="select">
+              <option value="en">English</option>
+              <option value="fr">Français</option>
+              <option value="es">Español</option>
+              <option value="de">Deutsch</option>
+              <option value="it">Italiano</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label class="field__label" for="length">
+              Length — <span id="length-out">8</span> sentences
+            </label>
+            <input id="length" class="range" type="range" min="3" max="200" value="8" />
+          </div>
+
+          <label class="toggle">
+            <input id="footnotes" type="checkbox" />
+            <span>Show footnotes &amp; source list</span>
+          </label>
+
+          <div class="compose__actions">
+            <button id="generate" type="submit" class="btn btn--primary">Compose</button>
+            <button id="stop" type="button" class="btn" hidden>Stop</button>
+          </div>
+
+          <details class="advanced">
+            <summary>Advanced</summary>
+            <div class="advanced__body">
+              <label class="field__label" for="gkey">Google Books API key (optional)</label>
+              <input
+                id="gkey"
+                class="text-input"
+                type="text"
+                spellcheck="false"
+                placeholder="Leave empty to run keyless"
+              />
+              <p class="hint">
+                Google Books is free but rate-limited. If you hit its daily limit, paste your own
+                free key (saved only in this browser) or use Internet Archive — it needs no key.
+                <a
+                  href="https://developers.google.com/books/docs/v1/using#APIKey"
+                  target="_blank"
+                  rel="noopener"
+                  >How to get a key ↗</a
+                >
+              </p>
+              <label class="toggle toggle--sm">
+                <input id="ia-fulltext" type="checkbox" />
+                <span>Internet Archive: read full book text for cleaner sentences (slower)</span>
+              </label>
+            </div>
+          </details>
+        </form>
+
+        <section class="history">
+          <div class="history__head">
+            <h2 class="history__title">History</h2>
+            <button id="clear-history" type="button" class="link-btn" hidden>Clear</button>
+          </div>
+          <ul id="history-list" class="history__list"></ul>
+          <p id="history-empty" class="history__empty">Your past compositions will appear here.</p>
+        </section>
+      </aside>
+
+      <!-- ============ RIGHT: the work ============ -->
+      <main class="studio">
+        <div class="statusbar" id="statusbar" data-phase="idle">
+          <span class="spinner" aria-hidden="true"></span>
+          <div class="statusbar__text">
+            <p class="statusbar__main" id="status-main">Ready.</p>
+            <p class="statusbar__detail" id="status-detail">
+              Choose a starting sentence and press Compose.
+            </p>
+          </div>
+        </div>
+
+        <article id="passage" class="passage" aria-live="polite"></article>
+
+        <ol id="sources" class="sources" hidden></ol>
+
+        <div id="result-actions" class="result-actions" hidden>
+          <button id="copy" type="button" class="link-btn">Copy text</button>
+          <button id="copy-sources" type="button" class="link-btn">Copy with sources</button>
+          <button id="download" type="button" class="link-btn">Download .txt</button>
+        </div>
+      </main>
+    </div>
+
+    <!-- hover provenance -->
+    <div id="tooltip" class="tooltip" role="tooltip" hidden></div>
+
+    <!-- first-lines browser -->
+    <dialog id="lines-dialog" class="dialog">
+      <div class="dialog__head">
+        <h2 class="dialog__title">Famous first lines</h2>
+        <button id="lines-close" type="button" class="icon-btn" aria-label="Close">✕</button>
+      </div>
+      <ul id="lines-list" class="lines"></ul>
+    </dialog>
+
+    <script type="module" src="js/app.js"></script>
+  </body>
+</html>
