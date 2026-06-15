@@ -22,7 +22,7 @@ export default {
       action: "query",
       list: "search",
       srsearch: `"${phrase}"`,
-      srlimit: "8",
+      srlimit: "15",
       format: "json",
       origin: "*",
     });
@@ -44,8 +44,12 @@ export default {
       });
       const extractData = await fetchJSON(`${api(lang)}?${extractParams}`, { signal });
       const page = extractData?.query?.pages?.[id];
-      const text = page?.extract;
-      if (!text) continue;
+      if (!page?.extract) continue;
+
+      // The plaintext extract still contains MediaWiki section headings as
+      // lines like "== History ==" — drop those lines so they never appear in
+      // the output or get treated as sentences.
+      const text = page.extract.replace(/^\s*=+.*?=+\s*$/gm, "\n");
 
       const next = findNextSentence(splitSentences(text, lang), phrase);
       if (!next) continue;

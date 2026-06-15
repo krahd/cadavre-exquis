@@ -36,12 +36,16 @@ export function splitSentences(text, lang) {
   return parts.map((s) => s.trim()).filter(Boolean);
 }
 
-// Lowercase + collapse whitespace, for matching only (never for display).
+// Lowercase + collapse whitespace, for matching/searching only (never for
+// display). Also strips leading/trailing punctuation so a phrase that ends a
+// sentence (e.g. "…across the sky.") still matches where it appears mid-text
+// (e.g. "…across the sky and vanished"), which keeps chains alive.
 export function normalize(text) {
   return String(text || "")
     .replace(/\s+/g, " ")
     .trim()
-    .toLowerCase();
+    .toLowerCase()
+    .replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, "");
 }
 
 export function wordCount(text) {
@@ -80,24 +84,20 @@ export function cleanHtml(input) {
   return s.replace(/\s+/g, " ").trim();
 }
 
-// True when a fragment reads like real running text rather than OCR noise
-// (page numbers, music chords like "E7 D7 A", catalog codes, scan artifacts,
-// or mixed-script garbage like "In other 换句话说 In other words"). Deliberately
-// lenient: mid-sentence fragments are welcome in an exquisite corpse — only
-// outright noise is rejected. We require at least two words, a high proportion
-// of letters, a dominant (Latin) script, and few digit/lone-letter "words".
+// True when a fragment is free of OCR noise (page numbers, music chords like
+// "E7 D7 A", catalog codes) and mixed-script garbage ("In other 换句话说 In other
+// words"). A building block for isGoodSentence.
 export function looksLikeText(fragment) {
   const t = String(fragment || "").trim();
-  if (wordCount(t) < 2) return false; // rejects bare "Having", page numbers
+  if (wordCount(t) < 2) return false;
   const nonspace = t.replace(/\s+/g, "").length;
   if (!nonspace) return false;
   const letters = (t.match(/\p{L}/gu) || []).length;
   if (letters / nonspace < 0.6) return false; // too many digits/symbols
   // Reject CJK / Kana / Hangul outright — in these English-language scanned
-  // sources they are always OCR garbage (e.g. "In other 换句话说 In other words").
+  // sources they are always OCR garbage.
   if (/[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u.test(t)) return false;
-  // And require letters to be predominantly Latin so other mixed-script noise is
-  // rejected too. (Latin covers accented European text like "café", "señor".)
+  // Require letters to be predominantly Latin (covers "café", "señor").
   const latin = (t.match(/\p{Script=Latin}/gu) || []).length;
   if (letters > 0 && latin / letters < 0.9) return false;
   const tokens = t.split(/\s+/);
@@ -109,21 +109,46 @@ export function looksLikeText(fragment) {
   return true;
 }
 
-// Given an array of sentences and a phrase, return the sentence that FOLLOWS
-// the first sentence containing the phrase. Returns null if there is no match
-// or the match is the last sentence (i.e. no usable "next").
-//
-// With { requireText: true } (used for scanned-book sources) the candidate must
-// pass looksLikeText, which keeps real-word fragments but rejects OCR noise.
-export function findNextSentence(sentences, phrase, { requireText = false } = {}) {
+// True when a fragment is a heading, banner, table-of-contents/index entry, or
+// other non-prose line we never want in the output.
+export function isHeadingOrJunk(sentence) {
+  const t = String(sentence || "").trim();
+  if (!t) return true;
+  if (t.includes("=")) return true; // MediaWiki "== Heading =="
+  if (!/\p{Ll}/u.test(t)) return true; // no lowercase at all -> a banner ("THE UPANISHADS")
+  const upper = (t.match(/\p{Lu}/gu) || []).length;
+  const lower = (t.match(/\p{Ll}/gu) || []).length;
+  if (upper + lower > 0 && upper / (upper + lower) > 0.45) return true; // mostly caps -> heading
+  if (/^\s*(chapter|section|part|appendix|table|figure|index|contents)\b/i.test(t) && !/[.!?]/.test(t))
+    return true;
+  return false;
+}
+
+// The bar for a sentence good enough to put in the composition: real prose, a
+// complete sentence (starts like one, ends with terminal punctuation), long
+// enough to read as a sentence, and not a heading or OCR garbage. This is what
+// "maximise the chance of the text making sense" comes down to.
+export function isGoodSentence(sentence) {
+  const t = String(sentence || "").trim();
+  if (wordCount(t) < 4) return false;
+  if (!looksLikeText(t)) return false;
+  if (isHeadingOrJunk(t)) return false;
+  if (!/^[“"'(¿¡\p{Lu}]/u.test(t)) return false; // starts like a sentence
+  if (!/[.!?…][”"'’)]?$/.test(t)) return false; // ends like a sentence (not truncated)
+  if (!/\p{Ll}{3,}/u.test(t)) return false; // contains a real (lowercase) word
+  return true;
+}
+
+// Return the sentence that FOLLOWS a sentence containing the phrase. Checks
+// every occurrence and returns the first whose successor passes `accept`
+// (defaults to isGoodSentence). Returns null if none qualifies.
+export function findNextSentence(sentences, phrase, { accept = isGoodSentence } = {}) {
   const needle = normalize(phrase);
   if (!needle) return null;
   for (let i = 0; i < sentences.length - 1; i++) {
     if (normalize(sentences[i]).includes(needle)) {
       const next = sentences[i + 1].trim();
-      if (!next) continue;
-      if (requireText && !looksLikeText(next)) continue;
-      return next;
+      if (next && accept(next)) return next;
     }
   }
   return null;

@@ -92,7 +92,7 @@ function init() {
   });
   els.footnotes.addEventListener("change", () => {
     localStorage.setItem(STORE.footnotes, els.footnotes.checked ? "1" : "0");
-    if (displayed) renderComposition(displayed.sentences, displayed.sentences.length);
+    if (displayed) renderFull(displayed.sentences);
   });
 
   els.form.addEventListener("submit", (e) => {
@@ -187,8 +187,7 @@ async function run() {
       signal: controller.signal,
       onProgress: (result, info) => {
         displayed.sentences = result;
-        renderComposition(result, renderedCount);
-        renderedCount = result.length;
+        appendNew(result);
         updateStatus(info, source.label);
       },
     });
@@ -216,48 +215,68 @@ function setRunning(on) {
 
 // ---------------- Rendering ----------------
 
-// Rebuild the passage (and source list). Sentences at index >= animateFrom get
-// a one-time fade-in.
-function renderComposition(sentences, animateFrom = Infinity) {
+// Append sentences that aren't in the DOM yet (newest fade in). Cheap during
+// streaming even at 400 sentences.
+function appendNew(sentences) {
   const footnotes = els.footnotes.checked;
-  els.passage.innerHTML = "";
-  sentences.forEach((item, i) => {
-    const span = document.createElement("span");
-    span.className = "sentence" + (i === 0 ? " sentence--seed" : "") + (i >= animateFrom ? " sentence--new" : "");
-    span.textContent = item.text;
-    if (item.source) span.dataset.source = JSON.stringify(item.source);
-    if (footnotes) {
-      const sup = document.createElement("sup");
-      sup.className = "fn";
-      sup.textContent = String(i + 1);
-      span.appendChild(sup);
-    }
-    els.passage.appendChild(span);
-  });
-  renderSources(sentences, footnotes);
+  for (let i = renderedCount; i < sentences.length; i++) {
+    els.passage.appendChild(makeSentenceSpan(sentences[i], i, footnotes, true));
+    if (footnotes) els.sources.appendChild(makeSourceLi(sentences[i], i));
+  }
+  if (footnotes && sentences.length > 0) els.sources.hidden = false;
+  renderedCount = sentences.length;
 }
 
-function renderSources(sentences, footnotes) {
-  if (!footnotes || sentences.length === 0) {
-    els.sources.hidden = true;
-    els.sources.innerHTML = "";
-    return;
+// Rebuild from scratch (used when toggling footnotes or viewing history).
+function renderFull(sentences) {
+  const footnotes = els.footnotes.checked;
+  els.passage.innerHTML = "";
+  els.sources.innerHTML = "";
+  sentences.forEach((item, i) => {
+    els.passage.appendChild(makeSentenceSpan(item, i, footnotes, false));
+    if (footnotes) els.sources.appendChild(makeSourceLi(item, i));
+  });
+  els.sources.hidden = !footnotes || sentences.length === 0;
+  renderedCount = sentences.length;
+}
+
+function makeSentenceSpan(item, i, footnotes, animate) {
+  const span = document.createElement("span");
+  span.className = "sentence" + (i === 0 ? " sentence--seed" : "") + (animate ? " sentence--new" : "");
+  span.textContent = item.text;
+  if (item.source) span.dataset.source = JSON.stringify(item.source);
+  if (footnotes) {
+    const sup = document.createElement("sup");
+    sup.className = "fn";
+    sup.textContent = String(i + 1);
+    span.appendChild(sup);
   }
-  els.sources.innerHTML = sentences
-    .map((item, i) => {
-      const s = item.source;
-      if (!s) return `<li>Your starting sentence.</li>`;
-      const cite = `<cite>${escapeHtml(s.title || "Unknown")}</cite>`;
-      const author = s.author ? ` — ${escapeHtml(s.author)}` : "";
-      const where = s.source ? ` <span class="src-where">(${escapeHtml(s.source)})</span>` : "";
-      const link =
-        s.url && /^https?:/.test(s.url)
-          ? ` · <a href="${escapeHtml(s.url)}" target="_blank" rel="noopener">open ↗</a>`
-          : "";
-      return `<li value="${i + 1}">${cite}${author}${where}${link}</li>`;
-    })
-    .join("");
-  els.sources.hidden = false;
+  return span;
+}
+
+function makeSourceLi(item, i) {
+  const li = document.createElement("li");
+  li.value = i + 1;
+  const s = item.source;
+  if (!s) {
+    li.textContent = "Your starting sentence.";
+    return li;
+  }
+  const cite = document.createElement("cite");
+  cite.textContent = s.title || "Unknown";
+  li.appendChild(cite);
+  if (s.author) li.appendChild(document.createTextNode(` — ${s.author}`));
+  if (s.source) li.appendChild(document.createTextNode(` (${s.source})`));
+  if (s.url && /^https?:/.test(s.url)) {
+    li.appendChild(document.createTextNode(" · "));
+    const a = document.createElement("a");
+    a.href = s.url;
+    a.target = "_blank";
+    a.rel = "noopener";
+    a.textContent = "open ↗";
+    li.appendChild(a);
+  }
+  return li;
 }
 
 function updateStatus(info, sourceLabel) {
@@ -343,8 +362,7 @@ function viewHistory(id) {
   if (running) controller?.abort();
   displayed = entry;
   activeHistoryId = id;
-  renderedCount = entry.sentences.length;
-  renderComposition(entry.sentences, entry.sentences.length);
+  renderFull(entry.sentences);
   setStatus("done", "Saved composition", summaryLine(entry));
   els.resultActions.hidden = false;
   highlightHistory();

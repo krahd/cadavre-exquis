@@ -35,6 +35,8 @@ export async function generate({
 
   emit({ phase: "starting", status: "Starting…" });
 
+  let consecutiveErrors = 0;
+
   while (result.length < targetLength) {
     if (signal?.aborted) break;
 
@@ -43,9 +45,19 @@ export async function generate({
     let found;
     try {
       found = await source.findNext(phrase, { used, opts, signal });
+      consecutiveErrors = 0;
     } catch (err) {
       if (err?.name === "AbortError" || signal?.aborted) break;
-      throw err; // surface (e.g. QuotaError) to the caller
+      if (err instanceof QuotaError) throw err; // explicit quota -> surface and stop
+      // A transient error (already retried at the HTTP layer) shouldn't end the
+      // whole composition. Skip this search like a miss and keep going — unless
+      // it keeps happening, which means a real outage worth surfacing.
+      if (++consecutiveErrors >= 6) throw err;
+      const stripped = dropFirstWord(phrase);
+      if (wordCount(stripped) < 1) break;
+      phrase = stripped;
+      emit({ phase: "dropping", phrase, status: "Source hiccup — trying a shorter phrase…" });
+      continue;
     }
 
     if (found) {

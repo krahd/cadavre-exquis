@@ -60,16 +60,16 @@ export default {
       const snippets = (hit.highlight?.text || []).map(cleanHtml).filter(Boolean);
       let next = null;
       for (const snip of snippets) {
-        next = findNextSentence(splitSentences(snip), phrase, { requireText: true });
+        next = findNextSentence(splitSentences(snip), phrase);
         if (next) break;
       }
 
       // Precision fallback: scan the full book text. Off by default because the
-      // text files can be large. Still OCR, so keep the noise filter.
+      // text files can be large.
       if (!next && opts.iaFullText) {
         try {
           const full = await fetchText(FULLTEXT(id), { signal });
-          next = findNextSentence(splitSentences(cleanHtml(full)), phrase, { requireText: true });
+          next = findNextSentence(splitSentences(cleanHtml(full)), phrase);
         } catch {
           /* item may not have a plain-text derivative */
         }

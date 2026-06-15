@@ -46,9 +46,9 @@ export default {
       const snippet = cleanHtml(item.searchInfo?.textSnippet || "");
       if (!snippet) continue;
 
-      // Snippets come from scanned pages — keep real-word fragments but skip
-      // OCR noise (page numbers, catalog codes).
-      const next = findNextSentence(splitSentences(snippet), phrase, { requireText: true });
+      // Only accept a well-formed, complete sentence (findNextSentence defaults
+      // to isGoodSentence) so the passage reads sensibly.
+      const next = findNextSentence(splitSentences(snippet), phrase);
       if (!next) continue;
 
       const info = item.volumeInfo || {};
