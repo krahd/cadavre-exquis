@@ -7,7 +7,11 @@
 // and retry, all the way down to a single word — there is almost always a way
 // to continue. Only when even a one-word search finds nothing new do we stop.
 
-import { normalize, dropFirstWord, wordCount } from "./sentences.js";
+import { normalize, dropFirstWord, wordCount, workKey } from "./sentences.js";
+
+// How many same-book candidates to skip for one phrase before giving up and
+// shortening it. Keeps the "no repeated book" rule from causing long stalls.
+const MAX_REPEAT_SKIPS = 12;
 
 // A typed error sources can throw to signal "quota / rate limited", so the UI
 // can show a helpful message rather than a generic failure.
@@ -28,7 +32,13 @@ export async function generate({
   signal,
 }) {
   const result = [{ text: startSentence.trim(), source: seedAttribution }];
-  const used = new Set();
+  const used = new Set(); // per-item ids already consumed
+  const usedWorks = new Set(); // works (books/articles) already used, across sources
+  // The seed's own book counts as used, so the first found sentence comes from a
+  // different work rather than the seed's continuation.
+  const seedWork = workKey(seedAttribution?.title);
+  if (seedWork) usedWorks.add(seedWork);
+
   let phrase = normalize(startSentence);
 
   const emit = (info) => onProgress(result, { step: result.length, target: targetLength, ...info });
@@ -36,6 +46,7 @@ export async function generate({
   emit({ phase: "starting", status: "Starting…" });
 
   let consecutiveErrors = 0;
+  let repeatSkips = 0;
 
   while (result.length < targetLength) {
     if (signal?.aborted) break;
@@ -56,14 +67,27 @@ export async function generate({
       const stripped = dropFirstWord(phrase);
       if (wordCount(stripped) < 1) break;
       phrase = stripped;
+      repeatSkips = 0;
       emit({ phase: "dropping", phrase, status: "Source hiccup — trying a shorter phrase…" });
       continue;
     }
 
     if (found) {
-      used.add(found.item.id);
+      used.add(found.item.id); // never offer this exact item again
+      const work = workKey(found.item.attribution?.title || found.item.title);
+
+      // Same book already used (possibly via a different source or edition)?
+      // Skip it and ask again for the same phrase — unless we've skipped too many.
+      if (work && usedWorks.has(work) && repeatSkips < MAX_REPEAT_SKIPS) {
+        repeatSkips++;
+        emit({ phase: "searching", phrase, status: "Skipping a book already used…" });
+        continue;
+      }
+
+      if (work) usedWorks.add(work);
       result.push({ text: found.nextSentence.trim(), source: found.item.attribution });
       phrase = normalize(found.nextSentence);
+      repeatSkips = 0;
       const title = found.item.title || found.item.attribution?.title || "a source";
       emit({ phase: "found", title, status: `Found in “${title}”.` });
     } else {
@@ -75,6 +99,7 @@ export async function generate({
         break;
       }
       phrase = stripped;
+      repeatSkips = 0;
       emit({ phase: "dropping", phrase, status: `No match — dropping a word: “${phrase}”` });
     }
   }

@@ -53,6 +53,22 @@ export function wordCount(text) {
   return t ? t.split(/\s+/).length : 0;
 }
 
+// A loose key identifying the underlying work from a title, so the same book
+// retrieved from different sources or editions is recognised as one. Drops
+// Wikisource subpage paths, subtitles, parenthetical years/editions, and a
+// trailing "by …", then keeps the first few significant words.
+export function workKey(title) {
+  const t = String(title || "")
+    .toLowerCase()
+    .split("/")[0] // Wikisource subpage ("Ulysses (1922)/Episode 1")
+    .split(":")[0] // subtitle ("Ulysses : a novel")
+    .replace(/\([^)]*\)/g, " ") // "(1922)", "(Washington City)"
+    .replace(/\bby\s.*$/, " ") // "by James Joyce"
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim();
+  return t.split(/\s+/).filter(Boolean).slice(0, 6).join(" ");
+}
+
 // Drop the leading word: "a b c" -> "b c". Returns "" when nothing remains.
 export function dropFirstWord(text) {
   const words = String(text || "").trim().split(/\s+/).filter(Boolean);
