@@ -1,6 +1,6 @@
 # cadavre exquis
 
-This repo constitues of **cadavre exquis**, an art experiment, an *exquisite corpse* of found sentences. Starting from a sentence you choose, the app searches a
+This is the repo of **cadavre exquis**, an art experiment, an *exquisite corpse* of found sentences. Starting from a sentence you choose, the app searches a
 text source for it, takes the **next sentence** from the book (or article) where it was found,
 appends it, then searches for *that* sentence in a **different** book — chaining onward until the
 passage reaches the length you set. The result reads as one continuous text, but every line comes
