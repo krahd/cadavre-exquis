@@ -1,6 +1,6 @@
 # cadavre exquis
 
-An *exquisite corpse* of found sentences. Starting from a sentence you choose, the app searches a
+This repo constitues of **cadavre exquis**, an art experiment, an *exquisite corpse* of found sentences. Starting from a sentence you choose, the app searches a
 text source for it, takes the **next sentence** from the book (or article) where it was found,
 appends it, then searches for *that* sentence in a **different** book — chaining onward until the
 passage reaches the length you set. The result reads as one continuous text, but every line comes
@@ -10,19 +10,6 @@ When a sentence can't be found anywhere, the app drops its first word and tries 
 is left to drop, it stops.
 
 Runs **entirely in the browser** — no server, no build step, no backend.
-
-## Features
-
-- **Two-column studio** — controls and history on the left, the composed passage on the right.
-- **Combine sources** — tick any set of sources and the passage is woven from all of them at once.
-- **Live status** — a running indicator shows what it's doing (searching, dropping a word, found in…)
-  and how many of the target sentences have been collected, so it's always clear it hasn't stalled.
-- **Length up to 400 sentences.**
-- **Famous first lines** — draw one at random, or browse the full list in a picker.
-- **Footnotes** — an optional toggle adds numbered markers and a source list under the passage.
-- **Hover provenance** — hover any sentence to see its book/author; click to open the source.
-- **History** — past compositions are saved in your browser; click one to revisit it.
-- **Export** — copy as text, copy with sources, or download a `.txt`.
 
 ## Sources
 
