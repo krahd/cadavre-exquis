@@ -259,6 +259,26 @@ body {
   font-size: 0.8rem;
 }
 
+/* ---------------- Source checkboxes ---------------- */
+.sources-field {
+  border: none;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.source-list {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.4rem 0.8rem;
+  margin-top: 0.5rem;
+}
+
+.toggle--source {
+  font-size: 0.85rem;
+  align-items: center;
+}
+
 /* ---------------- Advanced ---------------- */
 .advanced {
   border-top: 1px solid var(--rule);

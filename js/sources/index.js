@@ -1,13 +1,15 @@
-// Source registry. Order here is the order shown in the UI selector;
-// the first entry is the default. The work is about books, so Google Books
-// leads, Internet Archive follows, and Wikipedia is last.
+// Source registry. Order here is the order shown in the UI checkbox list.
+// Sources can be combined (see composite.js); defaultSelectedIds are checked on
+// first load.
 
 import googleBooks from "./googleBooks.js";
 import internetArchive from "./internetArchive.js";
-import wikipedia from "./wikipedia.js";
+import { wikipedia, wikisource, wikinews, wikivoyage } from "./mediawiki.js";
+import loc from "./loc.js";
 
-export const sources = [googleBooks, internetArchive, wikipedia];
+export const sources = [googleBooks, internetArchive, wikisource, wikipedia, wikinews, wikivoyage, loc];
 
 export const sourcesById = Object.fromEntries(sources.map((s) => [s.id, s]));
 
-export const defaultSourceId = sources[0].id;
+// Clean, fast prose by default; the user can add the others.
+export const defaultSelectedIds = ["wikipedia", "wikisource"];

@@ -14,9 +14,10 @@ Runs **entirely in the browser** — no server, no build step, no backend.
 ## Features
 
 - **Two-column studio** — controls and history on the left, the composed passage on the right.
+- **Combine sources** — tick any set of sources and the passage is woven from all of them at once.
 - **Live status** — a running indicator shows what it's doing (searching, dropping a word, found in…)
   and how many of the target sentences have been collected, so it's always clear it hasn't stalled.
-- **Length up to 200 sentences.**
+- **Length up to 400 sentences.**
 - **Famous first lines** — draw one at random, or browse the full list in a picker.
 - **Footnotes** — an optional toggle adds numbered markers and a source list under the passage.
 - **Hover provenance** — hover any sentence to see its book/author; click to open the source.
@@ -25,19 +26,24 @@ Runs **entirely in the browser** — no server, no build step, no backend.
 
 ## Sources
 
-The work is about **books**:
+Tick one or more (Wikipedia + Wikisource by default). When several are selected, each step searches
+them in turn and the passage is woven from all of them.
 
-- **Google Books** *(default)* — searches book contents. Uses the public snippet around each match,
-  so the next sentence is best-effort. Free, but rate-limited; without a key the daily quota is
-  small and may return an error. You can paste your own free key under **Advanced** (saved only in
-  your browser), or switch to Internet Archive.
+- **Google Books** — searches book contents via the public snippet around each match (best-effort).
+  Free but rate-limited; paste your own free key under **Advanced** if you hit the daily quota.
 - **Internet Archive** — full-text search across scanned books via Open Library's "Search Inside".
-  No key, no hard quota, real book provenance, and (because full text is available) the most
-  reliable next-sentence extraction.
-- **Wikipedia** — secondary. Reliable, full article text; supports multiple languages.
+  No key, no hard quota, real book provenance.
+- **Wikisource** — full text of public-domain literature (novels, poetry, speeches). Clean prose.
+- **Wikipedia** — reliable, full article text; multiple languages.
+- **Wikinews** — contemporary news prose; multiple languages.
+- **Wikivoyage** — travel-guide prose; multiple languages.
+- **Library of Congress** — OCR full text of historic newspapers (1700s–1900s). Evocative, but the
+  search is relevance-ranked and the OCR is noisy, so it contributes sparingly — best combined with
+  other sources rather than used alone.
 
-New sources can be added by dropping a module into `js/sources/` that implements the same
-`findNext(phrase, ctx)` interface and registering it in `js/sources/index.js`.
+The Wikimedia sources share one host-parameterized adapter (`js/sources/mediawiki.js`). New sources
+just implement `findNext(phrase, ctx)` and register in `js/sources/index.js`; `composite.js` weaves
+any selection together.
 
 ## Running it
 

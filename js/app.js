@@ -3,7 +3,8 @@
 // hover provenance, and export.
 
 import { generate, QuotaError } from "./engine.js";
-import { sources, sourcesById, defaultSourceId } from "./sources/index.js";
+import { sources, sourcesById, defaultSelectedIds } from "./sources/index.js";
+import { makeComposite } from "./sources/composite.js";
 import { firstLines, randomFirstLine } from "./data/firstLines.js";
 
 const $ = (id) => document.getElementById(id);
@@ -13,7 +14,7 @@ const els = {
   seedSource: $("seed-source"),
   shuffle: $("shuffle"),
   browse: $("browse"),
-  source: $("source"),
+  sourceList: $("source-list"),
   langField: $("lang-field"),
   lang: $("lang"),
   length: $("length"),
@@ -41,7 +42,12 @@ const els = {
   linesClose: $("lines-close"),
 };
 
-const STORE = { key: "cadavre.googleKey", history: "cadavre.history", footnotes: "cadavre.footnotes" };
+const STORE = {
+  key: "cadavre.googleKey",
+  history: "cadavre.history",
+  footnotes: "cadavre.footnotes",
+  sources: "cadavre.sources",
+};
 const MAX_HISTORY = 40;
 
 let controller = null;
@@ -55,13 +61,7 @@ let history = [];
 init();
 
 function init() {
-  for (const s of sources) {
-    const opt = document.createElement("option");
-    opt.value = s.id;
-    opt.textContent = s.label;
-    els.source.appendChild(opt);
-  }
-  els.source.value = defaultSourceId;
+  buildSourceList();
   syncLangVisibility();
 
   const savedKey = localStorage.getItem(STORE.key);
@@ -73,7 +73,6 @@ function init() {
   buildLinesDialog();
   pickFirstLine(randomFirstLine());
 
-  els.source.addEventListener("change", syncLangVisibility);
   els.length.addEventListener("input", () => (els.lengthOut.textContent = els.length.value));
   els.shuffle.addEventListener("click", () => pickFirstLine(randomFirstLine()));
   els.browse.addEventListener("click", () => els.linesDialog.showModal());
@@ -111,8 +110,46 @@ function init() {
   els.passage.addEventListener("click", onSentenceClick);
 }
 
+// ---- Source selection (multi-select checkboxes) ----
+
+function buildSourceList() {
+  let saved = [];
+  try {
+    saved = JSON.parse(localStorage.getItem(STORE.sources) || "[]");
+  } catch {
+    saved = [];
+  }
+  const checked = new Set(saved.length ? saved : defaultSelectedIds);
+
+  els.sourceList.innerHTML = "";
+  for (const s of sources) {
+    const label = document.createElement("label");
+    label.className = "toggle toggle--source";
+    const cb = document.createElement("input");
+    cb.type = "checkbox";
+    cb.value = s.id;
+    cb.checked = checked.has(s.id);
+    cb.addEventListener("change", onSourceChange);
+    const span = document.createElement("span");
+    span.textContent = s.label;
+    label.append(cb, span);
+    els.sourceList.appendChild(label);
+  }
+}
+
+function selectedSources() {
+  return [...els.sourceList.querySelectorAll("input:checked")]
+    .map((cb) => sourcesById[cb.value])
+    .filter(Boolean);
+}
+
+function onSourceChange() {
+  localStorage.setItem(STORE.sources, JSON.stringify(selectedSources().map((s) => s.id)));
+  syncLangVisibility();
+}
+
 function syncLangVisibility() {
-  els.langField.hidden = !sourcesById[els.source.value]?.supportsLang;
+  els.langField.hidden = !selectedSources().some((s) => s.supportsLang);
 }
 
 function pickFirstLine(line) {
@@ -148,6 +185,16 @@ async function run() {
     return;
   }
 
+  const selected = selectedSources();
+  if (!selected.length) {
+    setStatus("error", "Choose at least one source.", "Tick one or more sources to combine.");
+    return;
+  }
+  // A single source runs directly (so its quota errors surface); several are
+  // woven together by a composite.
+  const source = selected.length === 1 ? selected[0] : makeComposite(selected);
+  const sourceLabel = selected.map((s) => s.label).join(" + ");
+
   controller = new AbortController();
   setRunning(true);
   activeHistoryId = null;
@@ -157,14 +204,13 @@ async function run() {
   els.resultActions.hidden = true;
   renderedCount = 0;
 
-  const source = sourcesById[els.source.value];
   displayed = {
     id: cryptoId(),
     ts: Date.now(),
     seed: startSentence,
     seedMeta,
-    sourceId: source.id,
-    sourceLabel: source.label,
+    sourceIds: selected.map((s) => s.id),
+    sourceLabel,
     lang: els.lang.value,
     length: Number(els.length.value),
     sentences: [],
@@ -188,7 +234,7 @@ async function run() {
       onProgress: (result, info) => {
         displayed.sentences = result;
         appendNew(result);
-        updateStatus(info, source.label);
+        updateStatus(info, sourceLabel);
       },
     });
     displayed.sentences = sentences;
