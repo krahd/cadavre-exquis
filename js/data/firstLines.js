@@ -1,7 +1,7 @@
 // Curated famous opening lines, used both for the "famous first line" picker
 // and as the seed's attribution. Drawn from widely-cited literary openings.
 
-export const firstLines = [
+const englishFirstLines = [
   {
     text: "Happy families are all alike; every unhappy family is unhappy in its own way.",
     title: "Anna Karenina",
@@ -154,6 +154,86 @@ export const firstLines = [
   },
 ];
 
-export function randomFirstLine() {
-  return firstLines[Math.floor(Math.random() * firstLines.length)];
+const spanishFirstLines = [
+  {
+    text: "Todas las familias felices se parecen unas a otras; pero cada familia infeliz tiene un motivo especial para sentirse desgraciada.",
+    title: "Ana Karenina",
+    author: "León Tolstói",
+  },
+  {
+    text: "Es una verdad universalmente reconocida que un hombre soltero, poseedor de una gran fortuna, necesita esposa.",
+    title: "Orgullo y prejuicio",
+    author: "Jane Austen",
+  },
+  {
+    text: "Llamadme Ismael.",
+    title: "Moby-Dick",
+    author: "Herman Melville",
+  },
+  {
+    text: "Era el mejor de los tiempos, era el peor de los tiempos.",
+    title: "Historia de dos ciudades",
+    author: "Charles Dickens",
+  },
+  {
+    text: "Era un día luminoso y frío de abril y los relojes daban las trece.",
+    title: "1984",
+    author: "George Orwell",
+  },
+  {
+    text: "Hoy ha muerto mamá.",
+    title: "El extranjero",
+    author: "Albert Camus",
+  },
+  {
+    text: "Muchos años después, frente al pelotón de fusilamiento, el coronel Aureliano Buendía había de recordar aquella tarde remota en que su padre lo llevó a conocer el hielo.",
+    title: "Cien años de soledad",
+    author: "Gabriel García Márquez",
+  },
+  {
+    text: "La señora Dalloway dijo que ella misma compraría las flores.",
+    title: "La señora Dalloway",
+    author: "Virginia Woolf",
+  },
+  {
+    text: "Al despertar Gregor Samsa una mañana, tras un sueño intranquilo, encontróse en su cama convertido en un monstruoso insecto.",
+    title: "La metamorfosis",
+    author: "Franz Kafka",
+  },
+  {
+    text: "Alguien debía de haber calumniado a Josef K., porque una mañana fue detenido sin haber hecho nada malo.",
+    title: "El proceso",
+    author: "Franz Kafka",
+  },
+  {
+    text: "El pasado es un país extranjero; allí hacen las cosas de otra manera.",
+    title: "El mensajero",
+    author: "L. P. Hartley",
+  },
+  {
+    text: "Todos los niños, excepto uno, crecen.",
+    title: "Peter Pan",
+    author: "J. M. Barrie",
+  },
+];
+
+export const firstLinesByLang = {
+  en: englishFirstLines,
+  es: spanishFirstLines,
+};
+
+export const firstLines = englishFirstLines;
+
+function normalizeLineLanguage(lang) {
+  const base = String(lang || "").toLowerCase().split("-")[0];
+  return firstLinesByLang[base] ? base : "en";
+}
+
+export function linesForLanguage(lang) {
+  return firstLinesByLang[normalizeLineLanguage(lang)];
+}
+
+export function randomFirstLine(lang) {
+  const lines = linesForLanguage(lang);
+  return lines[Math.floor(Math.random() * lines.length)];
 }

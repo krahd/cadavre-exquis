@@ -440,6 +440,7 @@ body {
 .statusbar[data-phase="searching"] .spinner,
 .statusbar[data-phase="dropping"] .spinner,
 .statusbar[data-phase="found"] .spinner,
+.statusbar[data-phase="skipping"] .spinner,
 .statusbar[data-phase="starting"] .spinner {
   visibility: visible;
 }
@@ -459,7 +460,7 @@ body {
 }
 
 .passage:empty::before {
-  content: "Your composed passage will appear here.";
+  content: attr(data-empty);
   color: var(--ink-faint);
   font-style: italic;
   font-size: 1rem;

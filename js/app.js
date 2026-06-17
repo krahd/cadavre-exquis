@@ -5,25 +5,41 @@
 import { generate, QuotaError } from "./engine.js";
 import { sources, sourcesById, defaultSelectedIds } from "./sources/index.js";
 import { makeComposite } from "./sources/composite.js";
-import { firstLines, randomFirstLine } from "./data/firstLines.js";
+import { linesForLanguage, randomFirstLine } from "./data/firstLines.js";
+import { getLanguage, initialAppLanguage, setLanguage, t } from "./i18n.js";
 
 const $ = (id) => document.getElementById(id);
 const els = {
   form: $("compose"),
+  metaDescription: document.querySelector('meta[name="description"]'),
+  brandTagline: $("brand-tagline"),
+  appLang: $("app-lang"),
+  appLangLabel: $("app-lang-label"),
   seed: $("seed"),
+  seedLabel: $("seed-label"),
   seedSource: $("seed-source"),
   shuffle: $("shuffle"),
   browse: $("browse"),
   sourceList: $("source-list"),
+  sourcesLegend: $("sources-legend"),
   langField: $("lang-field"),
   lang: $("lang"),
+  langLabel: $("lang-label"),
   length: $("length"),
+  lengthLabelText: $("length-label-text"),
   lengthOut: $("length-out"),
+  lengthUnit: $("length-unit"),
   footnotes: $("footnotes"),
+  footnotesLabel: $("footnotes-label"),
   generate: $("generate"),
   stop: $("stop"),
   gkey: $("gkey"),
+  gkeyLabel: $("gkey-label"),
+  gkeyHint: $("gkey-hint"),
+  gkeyHelp: $("gkey-help"),
   iaFulltext: $("ia-fulltext"),
+  iaFulltextLabel: $("ia-fulltext-label"),
+  advancedSummary: $("advanced-summary"),
   statusbar: $("statusbar"),
   statusMain: $("status-main"),
   statusDetail: $("status-detail"),
@@ -33,22 +49,27 @@ const els = {
   copy: $("copy"),
   copySources: $("copy-sources"),
   download: $("download"),
+  historyTitle: $("history-title"),
   historyList: $("history-list"),
   historyEmpty: $("history-empty"),
   clearHistory: $("clear-history"),
   tooltip: $("tooltip"),
   linesDialog: $("lines-dialog"),
+  linesTitle: $("lines-title"),
   linesList: $("lines-list"),
   linesClose: $("lines-close"),
 };
 
 const STORE = {
+  appLang: "cadavre.appLang",
   key: "cadavre.googleKey",
   history: "cadavre.history",
   footnotes: "cadavre.footnotes",
   sources: "cadavre.sources",
 };
 const MAX_HISTORY = 40;
+const MIN_LENGTH = 3;
+const MAX_LENGTH = 100;
 
 let controller = null;
 let running = false;
@@ -61,20 +82,28 @@ let history = [];
 init();
 
 function init() {
+  const savedAppLang = localStorage.getItem(STORE.appLang);
+  const appLang = setLanguage(initialAppLanguage(savedAppLang, navigator.language));
+  els.appLang.value = appLang;
+
   buildSourceList();
   syncLangVisibility();
+  syncLength();
 
   const savedKey = localStorage.getItem(STORE.key);
   if (savedKey) els.gkey.value = savedKey;
   els.footnotes.checked = localStorage.getItem(STORE.footnotes) === "1";
 
   history = loadHistory();
+  applyTranslations();
   renderHistory();
   buildLinesDialog();
-  pickFirstLine(randomFirstLine());
+  pickFirstLine(randomFirstLine(els.lang.value));
 
-  els.length.addEventListener("input", () => (els.lengthOut.textContent = els.length.value));
-  els.shuffle.addEventListener("click", () => pickFirstLine(randomFirstLine()));
+  els.appLang.addEventListener("change", onAppLanguageChange);
+  els.lang.addEventListener("change", onTextLanguageChange);
+  els.length.addEventListener("input", syncLength);
+  els.shuffle.addEventListener("click", () => pickFirstLine(randomFirstLine(els.lang.value)));
   els.browse.addEventListener("click", () => els.linesDialog.showModal());
   els.linesClose.addEventListener("click", () => els.linesDialog.close());
   els.linesDialog.addEventListener("click", (e) => {
@@ -108,6 +137,73 @@ function init() {
   els.passage.addEventListener("pointerout", hideTooltip);
   els.passage.addEventListener("pointermove", moveTooltip);
   els.passage.addEventListener("click", onSentenceClick);
+}
+
+// ---------------- Language and copy ----------------
+
+function onAppLanguageChange() {
+  const appLang = setLanguage(els.appLang.value);
+  localStorage.setItem(STORE.appLang, appLang);
+  applyTranslations();
+  buildLinesDialog();
+  renderHistory();
+  if (seedMeta?.kind === "firstLine") {
+    seedMeta.source = t("source.famousFirstLine");
+    renderSeedSource(seedMeta);
+  }
+  if (displayed) {
+    renderFull(displayed.sentences);
+    if (!running) setStatus("done", displayed.reason ? reasonLabel(displayed.reason) : t("status.saved"), summaryLine(displayed));
+  } else if (!running) {
+    setStatus("idle", t("status.ready"), t("status.readyDetail"));
+  }
+}
+
+function onTextLanguageChange() {
+  buildLinesDialog();
+  if (seedMeta?.kind === "firstLine") pickFirstLine(randomFirstLine(els.lang.value));
+}
+
+function applyTranslations() {
+  document.documentElement.lang = getLanguage();
+  els.metaDescription?.setAttribute("content", t("meta.description"));
+  els.brandTagline.textContent = t("brand.tagline");
+  els.appLangLabel.textContent = t("lang.appLabel");
+  els.seedLabel.textContent = t("seed.label");
+  els.seed.placeholder = t("seed.placeholder");
+  els.shuffle.textContent = `↻ ${t("seed.random")}`;
+  els.browse.textContent = `☰ ${t("seed.browse")}`;
+  els.sourcesLegend.textContent = t("sources.legend");
+  els.langLabel.textContent = t("lang.sourceLabel");
+  els.lengthLabelText.textContent = t("length.label");
+  els.lengthUnit.textContent = t("length.unit");
+  els.footnotesLabel.textContent = t("footnotes.label");
+  els.generate.textContent = t("button.compose");
+  els.stop.textContent = t("button.stop");
+  els.advancedSummary.textContent = t("advanced.summary");
+  els.gkeyLabel.textContent = t("advanced.googleKey");
+  els.gkey.placeholder = t("advanced.googlePlaceholder");
+  els.gkeyHint.textContent = t("advanced.googleHint");
+  els.gkeyHelp.textContent = `${t("advanced.googleHelp")} ↗`;
+  els.iaFulltextLabel.textContent = t("advanced.iaFullText");
+  els.historyTitle.textContent = t("history.title");
+  els.clearHistory.textContent = t("history.clear");
+  els.historyEmpty.textContent = t("history.empty");
+  els.copy.textContent = t("actions.copyText");
+  els.copySources.textContent = t("actions.copySources");
+  els.download.textContent = t("actions.download");
+  els.linesTitle.textContent = t("dialog.firstLines");
+  els.linesClose.setAttribute("aria-label", t("dialog.close"));
+  els.passage.dataset.empty = t("passage.empty");
+  syncLength();
+  if (!displayed && !running) setStatus("idle", t("status.ready"), t("status.readyDetail"));
+}
+
+function syncLength() {
+  const length = clamp(Number(els.length.value) || 8, MIN_LENGTH, MAX_LENGTH);
+  els.length.value = String(length);
+  els.lengthOut.textContent = String(length);
+  return length;
 }
 
 // ---- Source selection (multi-select checkboxes) ----
@@ -154,13 +250,23 @@ function syncLangVisibility() {
 
 function pickFirstLine(line) {
   els.seed.value = line.text;
-  seedMeta = { title: line.title, author: line.author, url: null, source: "Famous first line" };
-  els.seedSource.textContent = `— ${line.title}, ${line.author}`;
+  seedMeta = {
+    kind: "firstLine",
+    title: line.title,
+    author: line.author,
+    url: null,
+    source: t("source.famousFirstLine"),
+  };
+  renderSeedSource(seedMeta);
+}
+
+function renderSeedSource(meta) {
+  els.seedSource.textContent = meta ? `— ${meta.title}, ${meta.author}` : "";
 }
 
 function buildLinesDialog() {
   els.linesList.innerHTML = "";
-  for (const line of firstLines) {
+  for (const line of linesForLanguage(els.lang.value)) {
     const li = document.createElement("li");
     const btn = document.createElement("button");
     btn.type = "button";
@@ -180,14 +286,14 @@ function buildLinesDialog() {
 async function run() {
   const startSentence = els.seed.value.trim();
   if (!startSentence) {
-    setStatus("error", "Enter a starting sentence.", "Type one, or draw a famous first line.");
+    setStatus("error", t("error.enterSeed"), t("error.enterSeedDetail"));
     els.seed.focus();
     return;
   }
 
   const selected = selectedSources();
   if (!selected.length) {
-    setStatus("error", "Choose at least one source.", "Tick one or more sources to combine.");
+    setStatus("error", t("error.chooseSource"), t("error.chooseSourceDetail"));
     return;
   }
   // A single source runs directly (so its quota errors surface); several are
@@ -200,9 +306,11 @@ async function run() {
   activeHistoryId = null;
   highlightHistory();
   els.passage.innerHTML = "";
+  els.sources.innerHTML = "";
   els.sources.hidden = true;
   els.resultActions.hidden = true;
   renderedCount = 0;
+  const targetLength = syncLength();
 
   displayed = {
     id: cryptoId(),
@@ -211,8 +319,9 @@ async function run() {
     seedMeta,
     sourceIds: selected.map((s) => s.id),
     sourceLabel,
+    appLang: getLanguage(),
     lang: els.lang.value,
-    length: Number(els.length.value),
+    length: targetLength,
     sentences: [],
     reason: null,
   };
@@ -242,9 +351,9 @@ async function run() {
     if (sentences.length > 1) addHistory(displayed);
   } catch (err) {
     if (err instanceof QuotaError) {
-      setStatus("error", "Google Books daily limit reached", err.message);
+      setStatus("error", t("error.googleQuota"), err.message);
     } else if (err?.name !== "AbortError") {
-      setStatus("error", "Something went wrong", err.message);
+      setStatus("error", t("error.generic"), err.message);
       console.error(err);
     }
   } finally {
@@ -262,7 +371,7 @@ function setRunning(on) {
 // ---------------- Rendering ----------------
 
 // Append sentences that aren't in the DOM yet (newest fade in). Cheap during
-// streaming even at 400 sentences.
+// streaming even at 100 sentences.
 function appendNew(sentences) {
   const footnotes = els.footnotes.checked;
   for (let i = renderedCount; i < sentences.length; i++) {
@@ -305,11 +414,11 @@ function makeSourceLi(item, i) {
   li.value = i + 1;
   const s = item.source;
   if (!s) {
-    li.textContent = "Your starting sentence.";
+    li.textContent = t("source.yourStartingSentence");
     return li;
   }
   const cite = document.createElement("cite");
-  cite.textContent = s.title || "Unknown";
+  cite.textContent = s.title || t("source.unknown");
   li.appendChild(cite);
   if (s.author) li.appendChild(document.createTextNode(` — ${s.author}`));
   if (s.source) li.appendChild(document.createTextNode(` (${s.source})`));
@@ -319,7 +428,7 @@ function makeSourceLi(item, i) {
     a.href = s.url;
     a.target = "_blank";
     a.rel = "noopener";
-    a.textContent = "open ↗";
+    a.textContent = `${t("source.open")} ↗`;
     li.appendChild(a);
   }
   return li;
@@ -329,16 +438,23 @@ function updateStatus(info, sourceLabel) {
   const phase = info.phase || "searching";
   const collected = info.step ?? 0;
   const target = info.target ?? 0;
-  let main = `Composing — ${collected} / ${target}`;
+  let main = t("status.composing", { collected, target });
   let detail = info.status || "";
-  if (phase === "searching") detail = `Searching ${sourceLabel} for “${truncate(info.phrase)}”…`;
-  else if (phase === "dropping") detail = `No match — dropping a word: “${truncate(info.phrase)}”`;
-  else if (phase === "found") detail = info.status;
+  if (phase === "searching") detail = t("status.searching", { sourceLabel, phrase: truncate(info.phrase) });
+  else if (phase === "skipping") detail = t("status.skippingUsed");
+  else if (phase === "dropping") {
+    detail = info.status?.startsWith("Source hiccup")
+      ? t("status.sourceHiccup")
+      : t("status.dropping", { phrase: truncate(info.phrase) });
+  } else if (phase === "found") detail = t("status.found", { title: info.title || t("source.unknown") });
   else if (phase === "starting") {
-    main = "Composing…";
-    detail = "Searching for your starting sentence…";
+    main = t("status.composingEllipsis");
+    detail = t("status.searchingSeed");
+  } else if (phase === "exhausted") {
+    main = t("status.noContinuation");
+    detail = summaryLine(displayed);
   } else if (phase === "done" || phase === "exhausted") {
-    main = info.status;
+    main = reasonLabel(info.reason);
     detail = summaryLine(displayed);
   }
   setStatus(phase, main, detail);
@@ -354,7 +470,13 @@ function summaryLine(comp) {
   if (!comp) return "";
   const found = comp.sentences.length;
   const distinct = new Set(comp.sentences.slice(1).map((s) => s.source?.title).filter(Boolean)).size;
-  return `${found} sentence${found === 1 ? "" : "s"} from ${distinct} source${distinct === 1 ? "" : "s"} · ${comp.sourceLabel}`;
+  return t("summary.line", {
+    found,
+    sentenceWord: plural("sentence", found),
+    distinct,
+    sourceWord: plural("source", distinct),
+    sourceLabel: comp.sourceLabel,
+  });
 }
 
 // ---------------- History ----------------
@@ -394,8 +516,15 @@ function renderHistory() {
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "history-item" + (entry.id === activeHistoryId ? " is-active" : "");
-    const when = new Date(entry.ts).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
-    btn.innerHTML = `<span class="history-item__seed">${escapeHtml(entry.seed)}</span><span class="history-item__meta">${entry.sentences.length} sentences · ${escapeHtml(entry.sourceLabel)} · ${when}</span>`;
+    const when = new Date(entry.ts).toLocaleString(getLanguage(), {
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    const sentences = plural("sentence", entry.sentences.length);
+    const meta = t("history.meta", { count: entry.sentences.length, sentences, sourceLabel: entry.sourceLabel, when });
+    btn.innerHTML = `<span class="history-item__seed">${escapeHtml(entry.seed)}</span><span class="history-item__meta">${escapeHtml(meta)}</span>`;
     btn.addEventListener("click", () => viewHistory(entry.id));
     li.appendChild(btn);
     els.historyList.appendChild(li);
@@ -409,7 +538,7 @@ function viewHistory(id) {
   displayed = entry;
   activeHistoryId = id;
   renderFull(entry.sentences);
-  setStatus("done", "Saved composition", summaryLine(entry));
+  setStatus("done", t("status.saved"), summaryLine(entry));
   els.resultActions.hidden = false;
   highlightHistory();
 }
@@ -442,9 +571,12 @@ function onSentenceHover(e) {
   } catch {
     return;
   }
-  const parts = [`<span class="tooltip__title">${escapeHtml(src.title || "Unknown")}</span>`];
+  const parts = [`<span class="tooltip__title">${escapeHtml(src.title || t("source.unknown"))}</span>`];
   if (src.author) parts.push(`<span class="tooltip__author">${escapeHtml(src.author)}</span>`);
-  const tail = src.url && /^https?:/.test(src.url) ? `${escapeHtml(src.source || "")} · click to open ↗` : escapeHtml(src.source || "");
+  const tail =
+    src.url && /^https?:/.test(src.url)
+      ? `${escapeHtml(src.source || "")} · ${t("source.clickToOpen")} ↗`
+      : escapeHtml(src.source || "");
   if (tail) parts.push(`<span class="tooltip__source">${tail}</span>`);
   els.tooltip.innerHTML = parts.join("");
   els.tooltip.hidden = false;
@@ -489,10 +621,10 @@ function plainText(comp) {
 }
 
 function sourcesText(comp) {
-  const lines = ["", "— Sources —"];
+  const lines = ["", `— ${t("source.heading")} —`];
   comp.sentences.forEach((s, i) => {
     if (!s.source) {
-      lines.push(`${i + 1}. Your starting sentence.`);
+      lines.push(`${i + 1}. ${t("source.yourStartingSentence")}`);
       return;
     }
     const author = s.source.author ? `, ${s.source.author}` : "";
@@ -507,15 +639,15 @@ async function copyResult(withSources) {
   const out = withSources ? `${plainText(displayed)}\n${sourcesText(displayed)}` : plainText(displayed);
   try {
     await navigator.clipboard.writeText(out);
-    setStatus("done", "Copied to clipboard.", summaryLine(displayed));
+    setStatus("done", t("notice.copied"), summaryLine(displayed));
   } catch {
-    setStatus("error", "Couldn't access the clipboard.", "");
+    setStatus("error", t("error.clipboard"), "");
   }
 }
 
 function downloadText() {
   if (!displayed) return;
-  const header = `cadavre exquis\n${new Date(displayed.ts).toLocaleString()} · ${displayed.sourceLabel}\n\n`;
+  const header = `cadavre exquis\n${new Date(displayed.ts).toLocaleString(getLanguage())} · ${displayed.sourceLabel}\n\n`;
   const body = `${plainText(displayed)}\n${sourcesText(displayed)}\n`;
   const blob = new Blob([header + body], { type: "text/plain;charset=utf-8" });
   const url = URL.createObjectURL(blob);
@@ -527,6 +659,26 @@ function downloadText() {
 }
 
 // ---------------- Utils ----------------
+
+function reasonLabel(reason) {
+  switch (reason) {
+    case "stopped":
+      return t("status.stopped");
+    case "complete":
+      return t("status.complete");
+    default:
+      return t("status.exhausted");
+  }
+}
+
+function plural(kind, count) {
+  const suffix = Number(count) === 1 ? "one" : "many";
+  return t(`word.${kind}.${suffix}`);
+}
+
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
 
 function truncate(s, n = 60) {
   s = String(s || "");

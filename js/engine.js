@@ -12,6 +12,7 @@ import { normalize, dropFirstWord, wordCount, workKey } from "./sentences.js";
 // How many same-book candidates to skip for one phrase before giving up and
 // shortening it. Keeps the "no repeated book" rule from causing long stalls.
 const MAX_REPEAT_SKIPS = 12;
+const MAX_TARGET_LENGTH = 100;
 
 // A typed error sources can throw to signal "quota / rate limited", so the UI
 // can show a helpful message rather than a generic failure.
@@ -31,6 +32,7 @@ export async function generate({
   onProgress = () => {},
   signal,
 }) {
+  targetLength = Math.min(MAX_TARGET_LENGTH, Math.max(1, Number(targetLength) || 8));
   const result = [{ text: startSentence.trim(), source: seedAttribution }];
   const used = new Set(); // per-item ids already consumed
   const usedWorks = new Set(); // works (books/articles) already used, across sources
@@ -77,10 +79,22 @@ export async function generate({
       const work = workKey(found.item.attribution?.title || found.item.title);
 
       // Same book already used (possibly via a different source or edition)?
-      // Skip it and ask again for the same phrase — unless we've skipped too many.
-      if (work && usedWorks.has(work) && repeatSkips < MAX_REPEAT_SKIPS) {
-        repeatSkips++;
-        emit({ phase: "searching", phrase, status: "Skipping a book already used…" });
+      // Skip candidates for a while, then shorten the phrase. Never accept a
+      // repeated work just because it was the only match.
+      if (work && usedWorks.has(work)) {
+        if (repeatSkips < MAX_REPEAT_SKIPS) {
+          repeatSkips++;
+          emit({ phase: "skipping", phrase, status: "Skipping a book already used…" });
+          continue;
+        }
+        const stripped = dropFirstWord(phrase);
+        if (wordCount(stripped) < 1) {
+          emit({ phase: "exhausted", status: "No continuation found — stopping.", done: true });
+          break;
+        }
+        phrase = stripped;
+        repeatSkips = 0;
+        emit({ phase: "dropping", phrase, status: `No match — dropping a word: “${phrase}”` });
         continue;
       }
 

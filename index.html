@@ -16,12 +16,20 @@
       <aside class="sidebar">
         <header class="brand">
           <h1 class="brand__title">cadavre exquis</h1>
-          <p class="brand__tagline">a passage of found sentences, each from a different book</p>
+          <p id="brand-tagline" class="brand__tagline">a passage of found sentences, each from a different book</p>
         </header>
 
         <form class="compose" id="compose" autocomplete="off">
           <div class="field">
-            <label class="field__label" for="seed">Starting sentence</label>
+            <label id="app-lang-label" class="field__label" for="app-lang">Interface language</label>
+            <select id="app-lang" class="select">
+              <option value="en">English</option>
+              <option value="es">Español</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label id="seed-label" class="field__label" for="seed">Starting sentence</label>
             <textarea
               id="seed"
               class="seed-input"
@@ -36,12 +44,12 @@
           </div>
 
           <fieldset class="field sources-field">
-            <legend class="field__label">Sources — combine any</legend>
+            <legend id="sources-legend" class="field__label">Sources — combine any</legend>
             <div id="source-list" class="source-list"></div>
           </fieldset>
 
           <div class="field" id="lang-field" hidden>
-            <label class="field__label" for="lang">Language</label>
+            <label id="lang-label" class="field__label" for="lang">Language</label>
             <select id="lang" class="select">
               <option value="en">English</option>
               <option value="fr">Français</option>
@@ -53,14 +61,15 @@
 
           <div class="field">
             <label class="field__label" for="length">
-              Length — <span id="length-out">8</span> sentences
+              <span id="length-label-text">Length</span> — <span id="length-out">8</span>
+              <span id="length-unit">sentences</span>
             </label>
-            <input id="length" class="range" type="range" min="3" max="400" value="8" />
+            <input id="length" class="range" type="range" min="3" max="100" value="8" />
           </div>
 
           <label class="toggle">
             <input id="footnotes" type="checkbox" />
-            <span>Show footnotes &amp; source list</span>
+            <span id="footnotes-label">Show footnotes &amp; source list</span>
           </label>
 
           <div class="compose__actions">
@@ -69,9 +78,9 @@
           </div>
 
           <details class="advanced">
-            <summary>Advanced</summary>
+            <summary id="advanced-summary">Advanced</summary>
             <div class="advanced__body">
-              <label class="field__label" for="gkey">Google Books API key (optional)</label>
+              <label id="gkey-label" class="field__label" for="gkey">Google Books API key (optional)</label>
               <input
                 id="gkey"
                 class="text-input"
@@ -80,9 +89,12 @@
                 placeholder="Leave empty to run keyless"
               />
               <p class="hint">
-                Google Books is free but rate-limited. If you hit its daily limit, paste your own
-                free key (saved only in this browser) or use Internet Archive — it needs no key.
+                <span id="gkey-hint"
+                  >Google Books is free but rate-limited. If you hit its daily limit, paste your own
+                  free key (saved only in this browser) or use Internet Archive — it needs no key.</span
+                >
                 <a
+                  id="gkey-help"
                   href="https://developers.google.com/books/docs/v1/using#APIKey"
                   target="_blank"
                   rel="noopener"
@@ -91,7 +103,9 @@
               </p>
               <label class="toggle toggle--sm">
                 <input id="ia-fulltext" type="checkbox" />
-                <span>Internet Archive: read full book text for cleaner sentences (slower)</span>
+                <span id="ia-fulltext-label"
+                  >Internet Archive: read full book text for cleaner sentences (slower)</span
+                >
               </label>
             </div>
           </details>
@@ -99,7 +113,7 @@
 
         <section class="history">
           <div class="history__head">
-            <h2 class="history__title">History</h2>
+            <h2 id="history-title" class="history__title">History</h2>
             <button id="clear-history" type="button" class="link-btn" hidden>Clear</button>
           </div>
           <ul id="history-list" class="history__list"></ul>
@@ -137,7 +151,7 @@
     <!-- first-lines browser -->
     <dialog id="lines-dialog" class="dialog">
       <div class="dialog__head">
-        <h2 class="dialog__title">Famous first lines</h2>
+        <h2 id="lines-title" class="dialog__title">Famous first lines</h2>
         <button id="lines-close" type="button" class="icon-btn" aria-label="Close">✕</button>
       </div>
       <ul id="lines-list" class="lines"></ul>

@@ -155,6 +155,20 @@ export function isGoodSentence(sentence) {
   return true;
 }
 
+function escapeRegExp(text) {
+  return String(text).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+export function containsSearchPhrase(sentence, phrase) {
+  const haystack = normalize(sentence);
+  const needle = normalize(phrase);
+  if (!needle) return false;
+  if (wordCount(needle) > 2) return haystack.includes(needle);
+
+  const pattern = escapeRegExp(needle).replace(/\s+/g, "\\s+");
+  return new RegExp(`(^|[^\\p{L}\\p{N}])${pattern}(?=$|[^\\p{L}\\p{N}])`, "u").test(haystack);
+}
+
 // Return the sentence that FOLLOWS a sentence containing the phrase. Checks
 // every occurrence and returns the first whose successor passes `accept`
 // (defaults to isGoodSentence). Returns null if none qualifies.
@@ -162,7 +176,7 @@ export function findNextSentence(sentences, phrase, { accept = isGoodSentence } 
   const needle = normalize(phrase);
   if (!needle) return null;
   for (let i = 0; i < sentences.length - 1; i++) {
-    if (normalize(sentences[i]).includes(needle)) {
+    if (containsSearchPhrase(sentences[i], needle)) {
       const next = sentences[i + 1].trim();
       if (next && accept(next)) return next;
     }
