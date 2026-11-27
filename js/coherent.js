@@ -25,24 +25,25 @@ function corpusIndex(documents,lang="en"){
 }
 
 function candidates(index,previous,used,{minWords=3,limit=64,scanLimit=20000}={}){
-  const query=tokens(previous), hits=[], found=new Set();
-  let scanned=0,truncated=false;
-  if(query.length<minWords)return {hits,truncated};
+  const query=tokens(previous), hits=[];
+  if(query.length<minWords)return {hits,truncated:false};
   const posting=index.postings.get(query.at(-1))||[];
-  for(let k=query.length;k>=minWords;k--){
-    const phrase=query.slice(-k);
-    for(const id of posting){
-      if(++scanned>scanLimit){truncated=true;return {hits,truncated}}
-      const row=index.rows[id];
-      if(used.has(row.work)||found.has(id)||row.words.length<k)continue;
-      let match=false;
-      for(let p=0;p<=row.words.length-k;p++){if(phrase.every((w,j)=>row.words[p+j]===w)){match=true;break}}
-      if(!match)continue;
-      found.add(id);hits.push({...row,matchWords:k,queryWords:query.length,phrase:phrase.join(" ")});
-      if(hits.length>=limit)return {hits,truncated:true};
+  let scanned=0;
+  for(const id of posting){
+    if(scanned++>=scanLimit)break;
+    const row=index.rows[id];
+    if(used.has(row.work)||row.words.length<minWords)continue;
+    let best=0;
+    for(let p=0;p<row.words.length;p++){
+      if(row.words[p]!==query.at(-1))continue;
+      let k=1;
+      while(k<query.length&&k<=p&&row.words[p-k]===query[query.length-1-k])k++;
+      best=Math.max(best,k);
     }
+    if(best>=minWords)hits.push({...row,matchWords:best,queryWords:query.length,phrase:query.slice(-best).join(" ")});
   }
-  return {hits,truncated}
+  hits.sort((a,b)=>b.matchWords-a.matchWords);
+  return {hits:hits.slice(0,limit),truncated:posting.length>scanLimit||hits.length>limit};
 }
 
 function coherenceScore(path,candidate,goal=""){
