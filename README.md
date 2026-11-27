@@ -69,3 +69,14 @@ output to see which book or article it came from; click it to open the source.
 - The Google Books API is **free** — there is no billing, only a daily request quota. This project
   embeds no API keys.
 - Results are non-deterministic: each composition depends on what the live sources return.
+
+
+## Coherence experiment — iteration 2 (27 November 2026)
+
+Open [coherent.html](coherent.html) from the same static server. Select at least two distinct authorised or public-domain UTF-8 texts, supply a seed sentence and optionally a topic. The local index retains adjacent sentence pairs. Search for the longest matching word suffix of the last emitted sentence anywhere in another work's predecessor; emit its actual successor, never a generated or rewritten sentence. The original live-source mode is unchanged.
+
+Compare first-match baseline, coherence-ranked greedy and beam search against the same bounded candidate pool. Adjustable minimum suffix length (default 3), length and beam width; topic and lexical continuity ranking with a weak English-specific pronoun penalty. Export JSON containing corpus names/hashes when supported, matched predecessor, exact successor, sentence position, query, scores, search counts and truncation flags. A user-supplied seed is not automatically attributable; subsequent sentences are extracted. Separate editions must be excluded by the operator.
+
+The engine is browser-only and experimental: 50 MB input cap, synchronous indexing, bounded postings and candidate counts. No bundled corpus, semantic/LLM scoring or human coherence evaluation yet. The first-match baseline is a deterministic local analogue, not the live network baseline. Synthetic tests establish mechanics, not literary quality.
+
+Next: assemble a fixed, documented public-domain corpus, compare connectivity at minimum 1–5 words, and evaluate discourse coherence independently of the scoring heuristic. Add optional local-model reranking of candidate IDs only; never permit the model to emit or alter text. Compare identical corpus and seeds across all methods, report dead ends and source fidelity, and retain actual outputs. No ICCC allocation or publication commitment follows from this iteration.
