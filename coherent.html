@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>cadavre exquis — coherence experiment</title>
+<link rel="stylesheet" href="css/styles.css">
+<style>
+body{max-width:1000px;margin:auto;padding:2rem 1rem;font-family:system-ui,sans-serif}
+main{display:grid;gap:1.5rem}h1,h2{font-family:Georgia,serif;font-weight:400}
+form{display:grid;gap:.8rem;max-width:48rem}label{display:grid;gap:.3rem}input,textarea,select,button{font:inherit}
+.controls{display:flex;flex-wrap:wrap;gap:1rem;align-items:end}.controls label{flex:1;min-width:8rem}
+.results{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,22rem),1fr));gap:2rem}
+.passage-text{font:1.25rem/1.7 Georgia,serif;white-space:pre-wrap}
+details{margin:.7rem 0}small{display:block;line-height:1.5}.status{min-height:1.5em}
+</style></head>
+<body><header><a href="index.html">← Original cadavre exquis</a><h1>Coherence experiment</h1>
+<p>Compose by traversing a local corpus. Every continuation is a complete, unmodified sentence immediately following a matching phrase in another work. No generative model writes the text.</p></header>
+<main><form id="experiment">
+<label>Public-domain or authorised UTF-8 text files (one work per file)
+<input id="corpus" type="file" accept=".txt,text/plain" multiple required></label>
+<small>Files remain in this browser. Use distinct works, not multiple editions of the same work. Maximum 50 MB total. No corpus is bundled.</small>
+<label>Starting sentence<textarea id="seed" required rows="3"></textarea></label>
+<label>Seed work, if from the corpus<select id="seedWork"><option value="">External or user-written seed</option></select></label>
+<label>Optional topic or direction<input id="goal" placeholder="e.g. memory, cities, disappearance"></label>
+<div class="controls"><label>Sentences<input id="length" type="number" min="2" max="30" value="8"></label>
+<label>Beam width<input id="width" type="number" min="1" max="16" value="6"></label>
+<label>Minimum matching words<input id="minimum" type="number" min="1" max="20" value="3"></label>
+<label>Corpus language<select id="language"><option value="en">English</option><option value="es">Spanish</option><option value="fr">French</option><option value="de">German</option><option value="it">Italian</option></select></label></div>
+<small>Reducing the minimum to one word increases connectivity but weakens the original constraint. Coherence scores use lexical continuity, not semantic or factual verification. The scorer's stopwords and pronoun penalty are English-specific.</small>
+<div class="controls"><button type="submit" id="run" class="btn btn--primary">Compare three searches</button><button type="button" id="stop" class="btn" disabled>Stop</button><button type="button" id="download" class="btn" disabled>Export evidence (JSON)</button></div>
+<p id="status" class="status" role="status" aria-live="polite">Select corpus files to begin.</p>
+</form><section id="results" class="results" aria-label="Compositions"></section></main>
+<script type="module" src="js/coherent-app.js"></script></body></html>
